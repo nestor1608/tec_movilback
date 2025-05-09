@@ -10,7 +10,7 @@ from rest_framework import status
 class ProductListGraphQLView(APIView):
     def get(self, request):
         SHOP_NAME = settings.SHOPIFY_DOMAIN
-        ACCESS_TOKEN = settings.SHOPIFY_STOREFRONT_ACCESS_TOKEN
+        ACCESS_TOKEN = settings.SHOPIFY_ADMIN_API_TOKEN
 
         url = f"https://{SHOP_NAME}.myshopify.com/api/2025-04/graphql.json"
         headers = {
