@@ -1,22 +1,21 @@
-from django.shortcuts import render
-
-# Create your views here.
 import requests
+import certifi
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 
 class ProductListGraphQLView(APIView):
     def get(self, request):
         SHOP_NAME = settings.SHOPIFY_DOMAIN
         ACCESS_TOKEN = settings.SHOPIFY_ADMIN_API_TOKEN
+        API_VERSION = settings.SHOPIFY_API_VERSION  # Usa la versión de settings
 
-        url = f"https://{SHOP_NAME}.myshopify.com/api/2025-04/graphql.json"
+        url = f"https://{SHOP_NAME}.myshopify.com/api/{API_VERSION}/graphql.json"
         headers = {
             "Content-Type": "application/json",
             "X-Shopify-Storefront-Access-Token": ACCESS_TOKEN
         }
+        
 
         query = """
         {
@@ -51,9 +50,12 @@ class ProductListGraphQLView(APIView):
           }
         }
         """
+            # Configura la ruta del certificado CA
+        session = requests.Session()
+        session.verify = certifi.where()
 
         try:
-            response = requests.post(url, json={"query": query}, headers=headers)
+            response = session.post(url, json={"query": query}, headers=headers)
             data = response.json().get("data", {}).get("products", {}).get("edges", [])
 
             products = []
