@@ -12,7 +12,7 @@ class ProductListGraphQLView(APIView):
         SHOP_NAME = settings.SHOPIFY_DOMAIN
         ACCESS_TOKEN = settings.SHOPIFY_ADMIN_API_TOKEN
 
-        url = 'https://{SHOP_NAME}.myshopify.com/api/2025-04/graphql.json'
+        url = f"https://{SHOP_NAME}.myshopify.com/api/2025-04/graphql.json"
         headers = {
             "Content-Type": "application/json",
             "X-Shopify-Storefront-Access-Token": ACCESS_TOKEN

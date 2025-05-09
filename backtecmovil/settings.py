@@ -52,6 +52,12 @@ MIDDLEWARE = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Allow secure connection headers from Render
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Set this to True in production
+SECURE_SSL_REDIRECT = True
+
 ROOT_URLCONF = 'backtecmovil.urls'
 
 TEMPLATES = [
