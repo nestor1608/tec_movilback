@@ -7,14 +7,19 @@ from rest_framework import status
 
 class ProductListGraphQLView(APIView):
     def get(self, request):
+        # Configuración para Storefront API
         SHOP_NAME = settings.SHOPIFY_DOMAIN
-        ACCESS_TOKEN = settings.SHOPIFY_ADMIN_API_TOKEN
-        API_VERSION = settings.SHOPIFY_API_VERSION  # Usa la versión de settings
-
+        STOREFRONT_TOKEN = settings.SHOPIFY_ADMIN_API_TOKEN
+        API_VERSION = settings.SHOPIFY_API_VERSION
+        
+        # URL correcta para Storefront API
         url = f"https://{SHOP_NAME}.myshopify.com/api/{API_VERSION}/graphql.json"
+        
+        # Headers específicos para Storefront API
         headers = {
             "Content-Type": "application/json",
-            "X-Shopify-Access-Token": ACCESS_TOKEN  # Cambiado a Admin API Token
+            "X-Shopify-Storefront-Access-Token": STOREFRONT_TOKEN,  # Header correcto para Storefront
+            "Accept": "application/json"
         }
 
         query = """
@@ -27,13 +32,10 @@ class ProductListGraphQLView(APIView):
                 description
                 featuredImage {
                   url
-                  altText
                 }
-                variants(first: 10) {
+                variants(first: 1) {
                   edges {
                     node {
-                      id
-                      title
                       price {
                         amount
                         currencyCode
@@ -48,49 +50,59 @@ class ProductListGraphQLView(APIView):
         """
 
         try:
-            # Configura la sesión con certificados SSL
+            # Configuración de sesión segura
             session = requests.Session()
-            session.verify = certifi.where()  # Usa los certificados de certifi
+            session.verify = certifi.where()
             
-            response = session.post(url, json={"query": query}, headers=headers)
+            response = session.post(
+                url,
+                json={'query': query},
+                headers=headers,
+                timeout=10
+            )
             
+            # Verificación de respuesta
             if response.status_code != 200:
                 return Response(
-                    {"error": f"Shopify API error: {response.status_code}"},
+                    {"error": f"API returned {response.status_code}"},
                     status=status.HTTP_502_BAD_GATEWAY
                 )
-
-            data = response.json()
-            if 'errors' in data:
+            
+            json_response = response.json()
+            
+            # Manejo de errores GraphQL
+            if 'errors' in json_response:
                 return Response(
-                    {"error": f"GraphQL error: {data['errors']}"},
+                    {"error": json_response['errors']},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
+            
+            # Procesamiento de datos seguro
             products = []
-            for edge in data.get("data", {}).get("products", {}).get("edges", []):
-                node = edge["node"]
-                variants = node.get("variants", {}).get("edges", [])
+            for edge in json_response.get('data', {}).get('products', {}).get('edges', []):
+                node = edge.get('node', {})
+                variant = node.get('variants', {}).get('edges', [{}])[0].get('node', {})
+                price = variant.get('price', {})
                 
-                if variants:
-                    variant = variants[0]["node"]
-                    price_info = variant.get("price", {})
-                    
-                    products.append({
-                        "id": node["id"],
-                        "title": node["title"].replace("Modulo", "Reparación de módulo"),
-                        "description": node.get("description") or "Reparación profesional de módulo de pantalla",
-                        "imageUrl": node.get("featuredImage", {}).get("url", ""),
-                        "price": float(price_info.get("amount", 0)),
-                        "currency": price_info.get("currencyCode", "USD"),
-                        "inStock": float(price_info.get("amount", 0)) > 0
-                    })
-
+                products.append({
+                    "id": node.get('id'),
+                    "title": node.get('title', '').replace("Modulo", "Reparación de módulo"),
+                    "description": node.get('description') or "Reparación profesional",
+                    "imageUrl": node.get('featuredImage', {}).get('url', ''),
+                    "price": float(price.get('amount', 0)),
+                    "currency": price.get('currencyCode', 'USD'),
+                    "inStock": True  # Storefront API no indica stock directamente
+                })
+            
             return Response(products)
-
-        except Exception as e:
-            print("Shopify fetch error:", str(e))
+            
+        except requests.exceptions.SSLError as e:
             return Response(
-                {"error": "Error al conectar con Shopify"},
+                {"error": "SSL verification failed"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
